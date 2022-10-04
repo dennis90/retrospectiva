@@ -35,6 +35,7 @@ export const boardInteractRouter = createProtectedRouter()
   .query('cards', {
     input: z.object({
       boardId: z.string(),
+      columnId: z.string(),
       showText: z.boolean().nullable(),
       showVoteCount: z.boolean().nullable(),
     }),
@@ -42,6 +43,7 @@ export const boardInteractRouter = createProtectedRouter()
       return await ctx.prisma.card.findMany({
         where: {
           boardId: input.boardId,
+          columnId: input.columnId,
         },
         select: {
           id: true,
@@ -52,6 +54,24 @@ export const boardInteractRouter = createProtectedRouter()
               votes: !!input.showVoteCount,
             },
           },
+        },
+      });
+    },
+  })
+  .mutation('new-card', {
+    input: z.object({
+      name: z.string(),
+      boardId: z.string(),
+      columnId: z.string(),
+    }),
+
+    async resolve({ ctx, input }) {
+      return await ctx.prisma.card.create({
+        data: {
+          name: input.name,
+          boardId: input.boardId,
+          columnId: input.columnId,
+          ownerId: ctx.session.user.id,
         },
       });
     },

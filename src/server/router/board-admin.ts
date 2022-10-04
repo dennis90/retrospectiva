@@ -72,12 +72,26 @@ export const boardAdminRouter = createProtectedRouter()
       boardId: z.string(),
       color: z.string(),
     }),
+
     async resolve({ ctx, input }) {
       return await ctx.prisma.boardColumn.create({
         data: {
           name: input.name,
           boardId: input.boardId,
           color: input.color,
+        },
+      });
+    },
+  })
+
+  .mutation('delete-column', {
+    input: z.object({
+      id: z.string(),
+    }),
+    async resolve({ ctx, input }) {
+      return await ctx.prisma.boardColumn.delete({
+        where: {
+          id: input.id,
         },
       });
     },

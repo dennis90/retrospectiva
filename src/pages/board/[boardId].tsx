@@ -3,20 +3,39 @@ import { useSession } from 'next-auth/react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useRef } from 'react';
+import Column from '../../components/board/Column';
+import NewCardForm from '../../components/board/NewCardForm';
 import { trpc } from '../../utils/trpc';
 
 const Board: NextPage = () => {
   const router = useRouter();
   const { data: sessionData } = useSession();
   const { boardId } = router.query;
-  const { data } = trpc.useQuery(['board.get', { id: String(boardId) }], {
-    refetchInterval: 30_000,
-  });
+  const { data, refetch } = trpc.useQuery(
+    ['board.get', { id: String(boardId) }],
+    {
+      refetchInterval: 30_000,
+    }
+  );
+
+  const newCardRef = useRef<HTMLInputElement>(null);
 
   const columnNameRef = useRef<HTMLInputElement>(null);
   const columnColorRef = useRef<HTMLInputElement>(null);
 
-  const { mutate } = trpc.useMutation(['board-admin.new-column']);
+  const { mutate: newColumnMutate } = trpc.useMutation(
+    ['board-admin.new-column'],
+    {
+      onSuccess: () => refetch(),
+    }
+  );
+
+  const { mutate: deleteColumnMutate } = trpc.useMutation(
+    ['board-admin.delete-column'],
+    {
+      onSuccess: () => refetch(),
+    }
+  );
 
   const isOwner = sessionData?.user?.id === data?.ownerId;
 
@@ -28,11 +47,11 @@ const Board: NextPage = () => {
 
       <main className="container mx-auto flex flex-col items-center p-4">
         <div className="flex">
-          <h1 className="text-3xl md:text[3rem] leading-normal font-extrabold text-gray-700">
+          <h1 className="md:text[3rem] text-3xl font-extrabold leading-normal">
             {data?.name}
           </h1>
           {isOwner && (
-            <span className="text-xs rounded-xl border-neutral-600 py-0 px-2 mx-4 bg-blue-700 text-white self-center">
+            <span className="mx-4 self-center rounded-xl border-neutral-600 bg-blue-700 py-0 px-2 text-xs text-white">
               Admin
             </span>
           )}
@@ -46,6 +65,7 @@ const Board: NextPage = () => {
                 name="column-name"
                 type="text"
                 id="column-name"
+                className="input"
                 ref={columnNameRef}
               />
             </div>
@@ -60,7 +80,7 @@ const Board: NextPage = () => {
             </div>
             <button
               onClick={() => {
-                mutate({
+                newColumnMutate({
                   boardId: String(boardId),
                   name: columnNameRef.current?.value || '',
                   color: columnColorRef.current?.value || '#ffffff',
@@ -72,12 +92,16 @@ const Board: NextPage = () => {
           </div>
         )}
 
-        <div>
+        <div className="flex flex-row gap-3">
           {data?.BoardColumn.map((column) => (
-            <div key={column.id} className={`bg-[${column.color}]`}>
-              <h2>{column.name}</h2>
-              <div>Cards placeholder</div>
-            </div>
+            <Column
+              key={column.id}
+              color={column.color}
+              name={column.name}
+              columnId={column.id}
+              boardId={data.id}
+              onRevalidate={refetch}
+            />
           ))}
         </div>
       </main>
