@@ -1,5 +1,23 @@
 import { z } from 'zod';
+import * as trpc from '@trpc/server';
 import { createProtectedRouter } from './context';
+import { prisma } from '../db/client';
+
+async function validateBoardOwnership(boardId: string, sessionId: string) {
+  const board = await prisma.board.findFirst({
+    where: {
+      id: boardId,
+      ownerId: sessionId,
+    },
+    select: {
+      ownerId: true,
+    },
+  });
+
+  if (!board) {
+    throw new trpc.TRPCError({ code: 'UNAUTHORIZED' });
+  }
+}
 
 export const boardAdminRouter = createProtectedRouter()
   .query('list', {
@@ -21,6 +39,7 @@ export const boardAdminRouter = createProtectedRouter()
       isPublic: z.boolean(),
       boardPassword: z.string().optional(),
     }),
+
     async resolve({ ctx, input }) {
       return await ctx.prisma.board.create({
         data: {
@@ -49,6 +68,8 @@ export const boardAdminRouter = createProtectedRouter()
     }),
 
     async resolve({ ctx, input }) {
+      await validateBoardOwnership(input.id, ctx.session.user.id);
+
       return await ctx.prisma.board.updateMany({
         data: {
           name: input.name,
@@ -74,6 +95,8 @@ export const boardAdminRouter = createProtectedRouter()
     }),
 
     async resolve({ ctx, input }) {
+      await validateBoardOwnership(input.boardId, ctx.session.user.id);
+
       return await ctx.prisma.boardColumn.create({
         data: {
           name: input.name,
@@ -83,12 +106,14 @@ export const boardAdminRouter = createProtectedRouter()
       });
     },
   })
-
   .mutation('delete-column', {
     input: z.object({
       id: z.string(),
+      boardId: z.string(),
     }),
     async resolve({ ctx, input }) {
+      await validateBoardOwnership(input.boardId, ctx.session.user.id);
+
       return await ctx.prisma.boardColumn.delete({
         where: {
           id: input.id,
